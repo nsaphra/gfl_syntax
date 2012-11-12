@@ -37,10 +37,22 @@ class ConverterGfl2Conll:
         """ Form a dictionary in which each variable node
         points through a series of edges to the node
         which its children should point to in CoNLL """
-        for edge in self.gfl.node_edges:
-            (head, child, label) = edge
+        cbb_edges = {}
+        for (head, child, label) in self.gfl.node_edges:
+            if label == "Anaph":
+                continue
+            if label == "unspec":
+                # part of a CBB constituent
+                cbb_edges[child] = head
+                continue
             assert child not in self.node_evals
             self.node_evals[child] = head
+
+        # handle CBB edges saved
+        for (child, head) in cbb_edges.items():
+            if child not in self.node_evals:
+                self.node_evals[child] = head
+
         for (n, ws) in self.gfl.extra_node2words.items():
             # replace variable head with first coordinate
             # eg., "$x :: a :: {p q}" gives "$x":"p"
@@ -114,13 +126,22 @@ if __name__ == "__main__":
         if line.startswith("%"):
             section = line.strip()
             continue
-        if section == "% ANNO":
+        if line.strip() == "---":
+            if not anno.strip() or not text.strip():
+                continue
+            t = ConverterGfl2Conll(anno, text)
+            outfile.write(t.convert2conll())
+            outfile.write("\n")
+            anno = ""
+            text = ""
+        elif section == "% ANNO":
             anno += line
         elif section == "% TEXT":
             text += line
 
-    t = ConverterGfl2Conll(anno, text)
-    outfile.write(t.convert2conll())
+    if anno.strip() and text.strip():
+        t = ConverterGfl2Conll(anno, text)
+        outfile.write(t.convert2conll())
     infile.close()
     outfile.close()
 
