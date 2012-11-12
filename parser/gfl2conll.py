@@ -1,3 +1,5 @@
+""" Usage: python gfl2conll.py infile.anno outfile.conll """
+
 import re
 import sys
 from gfl_parser import *
