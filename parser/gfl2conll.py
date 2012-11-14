@@ -131,7 +131,7 @@ if __name__ == "__main__":
                 continue
             t = ConverterGfl2Conll(anno, text)
             outfile.write(t.convert2conll())
-            outfile.write("\n")
+            outfile.write("\n\n")
             anno = ""
             text = ""
         elif section == "% ANNO":
