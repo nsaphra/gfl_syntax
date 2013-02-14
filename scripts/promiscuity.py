@@ -199,29 +199,53 @@ class PromiscuityMeasure(object):
         # CASE 5: both nodes not in cbb
         return cbb_heads
 
-    def __find_trees(self, root, nodelist, cbb_heads):
+    def __find_trees(self, root, nodelist, cbb_heads, next_edges, ind_depth):
         """ Identify the spanning trees that meet out constraints """
+        self.__print_tree(root, ind_depth)
 
         if len(nodelist) == len(self.graph) + 1:
             # extra node in nodelist for top_node
             self.trees.append(copy.deepcopy(root))
+            print ("  " * ind_depth) + "******"
             return
 
-        for node in nodelist:
-            for child in self.graph_inv[node]:
+        for (head, children) in next_edges.items():
+            for child in children:
                 if child in nodelist:
-                    continue
+                    print head
+                    print child
+                    print nodelist
+                assert child not in nodelist
 
-                tmp_cbb_heads = self.__constrain_cbbs(node, child,
+                tmp_cbb_heads = self.__constrain_cbbs(head, child,
                                                       copy.deepcopy(cbb_heads))
                 if not tmp_cbb_heads:
                     continue
 
                 childnode = TreeNode(child, [])
-                nodelist[node].add_child(childnode)
+                nodelist[head].add_child(childnode)
                 nodelist[child] = childnode
 
-                self.__find_trees(root, nodelist, tmp_cbb_heads)
+                # insert new possible edges out of tree
+                next_edges[child] = self.graph_inv[child]
+
+                # remove newly cyclic edges
+                saved_edges = set()
+                for cycle_head in self.graph[child]:
+                    if cycle_head not in next_edges:
+                        continue
+                    next_edges[cycle_head].remove(child)
+                    saved_edges.add(cycle_head)
+
+                self.__find_trees(root, nodelist, tmp_cbb_heads,
+                                  next_edges, ind_depth+1)
+
+                # add back in old cyclic edges
+                for edge_head in saved_edges:
+                    next_edges[edge_head].add(child)
+
+                # remove old possible edges out of tree
+                del next_edges[child]
 
                 del nodelist[child]
                 nodelist[node].remove_child(childnode)
@@ -236,7 +260,10 @@ class PromiscuityMeasure(object):
         self.__invert_cbb_edges()
 
         top_root = TreeNode(top_node, [])
-        self.__find_trees(top_root, {top_node: top_root}, copy.deepcopy(self.cbb_heads))
+        self.__find_trees(top_root, {top_node: top_root},
+                          copy.deepcopy(self.cbb_heads),
+                          {top_node: self.graph_inv[top_node]},
+                          0)
         return len(self.trees)
 
     def __print_tree(self, root, indent_level):
