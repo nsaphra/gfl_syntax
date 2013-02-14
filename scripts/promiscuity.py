@@ -101,28 +101,40 @@ class PromiscuityMeasure(object):
         """ Remove extra edges if node connects to a CBB with
         known head """
 
+        # restrict parents of non-head CBB components within the CBB
+        for (head, children) in self.cbb_edges.items():
+            for child in children:
+                if child not in self.cbb_heads[head]:
+                    self.graph[child].intersection(self.cbb_edges[head])
+
         for (head, child, label) in self.node_edges:
             if label == "Anaph" or label == "unspec":
                 continue
+
             if head in self.cbb_heads and child in self.graph:
                 # if arc attaches w to CBB, remove all outgoing edges
                 # outside of CBB
                 self.graph[child] = set(self.cbb_heads[head])
                 self.cbb_incoming[child] = head
                 continue
-            elif child in self.cbb_heads:
+
+            elif child in self.cbb_edges:
                 # if CBB has an outgoing edge, all components of CBB
                 # must have either a head in that CBB
                 # or the outgoing edge head
-                potential_heads = set()
+                potential_heads = set(self.cbb_edges[child])
                 if head in self.graph:
                     potential_heads.add(head)
                 elif head in self.cbb_edges:
-                    potential_heads = self.cbb_heads[head]
+                    potential_heads.union(self.cbb_heads[head])
                 else:
                     continue
+
                 for n in self.cbb_edges[child]:
-                    self.graph[n].union(potential_heads)
+                    if n not in self.cbb_heads[child]:
+                        self.graph[n] = set(self.cbb_edges[child])
+                        continue
+                    self.graph[n].intersect(potential_heads)
 
     def __invert_graph(self):
         """ return an inverted version of self.graph, with parents
@@ -154,7 +166,6 @@ class PromiscuityMeasure(object):
                 nodelist[node].remove_child(childnode)
             self.graph_inv[node] = new_children
 
-
     def promiscuity(self):
         """ Build all compatible trees and count them """
 
@@ -167,6 +178,15 @@ class PromiscuityMeasure(object):
         self.__find_trees(top_root, {top_node: top_root})
         return len(self.trees)
 
+    def __print_tree(self, root, indent_level):
+        print ("  " * indent_level) + root.name
+        for child in root.children:
+            self.__print_tree(child, indent_level + 1)
+
+    def print_trees(self):
+        for tree in self.trees:
+            self.__print_tree(tree, 0)
+
 
 if __name__ == "__main__":
     infile = open(sys.argv[1], 'r')
@@ -175,6 +195,7 @@ if __name__ == "__main__":
     for line in infile:
         p = PromiscuityMeasure(line.split('\t')[2])
         outfile.write(str(p.promiscuity()) + '\n\n')
+        p.print_trees()
 
     infile.close()
     outfile.close()
