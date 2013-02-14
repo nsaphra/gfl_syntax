@@ -135,10 +135,6 @@ class PromiscuityMeasure(object):
     def __find_trees(self, root, nodelist):
         """ Identify the spanning trees that meet out constraints """
 
-        print nodelist.keys()
-        print self.graph.keys()
-        print "_____"
-
         if len(nodelist) == len(self.graph):
             self.trees.append(root.deep_copy())
 
@@ -167,7 +163,6 @@ class PromiscuityMeasure(object):
         self.__remove_multiparents()
         self.__invert_graph()
 
-        print self.graph_inv
         top_root = TreeNode(top_node, [])
         self.__find_trees(top_root, {top_node: top_root})
         return len(self.trees)
