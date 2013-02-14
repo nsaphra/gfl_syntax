@@ -1,6 +1,7 @@
 import re
 import sys
 import json
+import copy
 
 top_node = "$$"
 
@@ -15,10 +16,9 @@ class TreeNode(object):
     def remove_child(self, child):
         self.children.remove(child)
 
-    def deep_copy(self):
+    def deepcopy(self):
         return TreeNode(self.name,
-                        [child.deep_copy() for child in self.children])
-            
+                        [child.deepcopy() for child in self.children])            
 
 class PromiscuityMeasure(object):
     def __init__(self, json_line):
@@ -29,9 +29,8 @@ class PromiscuityMeasure(object):
         self.nodes = anno['nodes']
         self.extra_node2words = anno['extra_node2words']
         self.cbb_edges = {}
+        self.cbb_edges_inv = {}
         self.cbb_heads = {}
-        self.cbb_incoming = {}
-        self.cbb_outgoing = {}
         self.trees = []
         self.graph = {}
         self.graph_inv = {}
@@ -115,11 +114,9 @@ class PromiscuityMeasure(object):
                 # if arc attaches w to CBB, remove all outgoing edges
                 # outside of CBB
                 self.graph[child] = set(self.cbb_heads[head])
-                self.cbb_incoming[child] = head
                 continue
 
             elif child in self.cbb_edges:
-                print "bar"
                 # if CBB has an outgoing edge, all components of CBB
                 # must have either a head in that CBB
                 # or the outgoing edge head
@@ -135,38 +132,99 @@ class PromiscuityMeasure(object):
                     if n not in self.cbb_heads[child]:
                         self.graph[n] = set(self.cbb_edges[child])
                         continue
-                    print "here!"
                     self.graph[n] = self.graph[n].intersection(potential_heads)
 
+    def __invert_cbb_edges(self):
+        """ fill an inverted version of self.cbb_edges, with CBB nodes as
+        values and components as keys """
+
+        for (cbb, components) in self.cbb_edges.items():
+            for c in components:
+                if c not in self.cbb_edges_inv:
+                    self.cbb_edges_inv[c] = set()
+                self.cbb_edges_inv[c].add(cbb)
+
     def __invert_graph(self):
-        """ return an inverted version of self.graph, with parents
+        """ fill an inverted version of self.graph, with parents
         as keys and children as values """
 
         for (child, heads) in self.graph.items():
             for head in heads:
                 self.graph_inv[head].add(child)
 
-    def __find_trees(self, root, nodelist):
+    def __try_specify_cbb_head(self, head, cbbs, cbb_heads):
+        """ Attempt to specify one cbb head or return empty if
+        head is not a valid head for cbb """
+
+        for cbb in cbbs:
+            if head not in cbb_heads[cbb]:
+                return {}
+            cbb_heads[cbb] = set([head])
+        return cbb_heads
+
+    def __constrain_cbbs(self, head, child, cbb_heads):
+        if head in self.cbb_edges_inv:
+            head_cbbs = self.cbb_edges_inv[head]
+            if child in self.cbb_edges_inv:
+                child_cbbs = self.cbb_edges_inv[child]
+
+                if head_cbbs == child_cbbs:
+                    # CASE 1: [cbb node] parents [node in same cbb]
+                    for cbb in head_cbbs:
+                        if child in cbb_heads[cbb]:
+                            cbb_heads[cbb].remove(child)
+                            if not cbb_heads[cbb]:
+                                return {}
+                    return cbb_heads
+
+                # CASE 2: [cbb node] parents [node in different cbb]
+                for cbb in child_cbbs:
+                    if cbb in head_cbbs:
+                        # parent gets to be head of this
+                        continue
+                    if child not in cbb_heads[cbb]:
+                        return {}
+                    cbb_heads[cbb] = set([child])
+                # return below
+            
+            # CASE 3: [cbb node] parents [node not in cbb]
+            return self.__try_specify_cbb_head(head, head_cbbs, cbb_heads)
+
+        if child in self.cbb_edges_inv:
+            # CASE 4: [node not in cbb] parents [cbb node]
+            return self.__try_specify_cbb_head(child,
+                                               self.cbb_edges_inv[child],
+                                               cbb_heads)
+
+        # CASE 5: both nodes not in cbb
+        return cbb_heads
+
+    def __find_trees(self, root, nodelist, cbb_heads):
         """ Identify the spanning trees that meet out constraints """
 
-        if len(nodelist) == len(self.graph):
-            self.trees.append(root.deep_copy())
+        if len(nodelist) == len(self.graph) + 1:
+            # extra node in nodelist for top_node
+            self.trees.append(copy.deepcopy(root))
+            return
 
         for node in nodelist:
-            new_children = set()
             for child in self.graph_inv[node]:
                 if child in nodelist:
-                    new_children.add(child)
                     continue
+
+                tmp_cbb_heads = self.__constrain_cbbs(node, child,
+                                                      copy.deepcopy(cbb_heads))
+                if not tmp_cbb_heads:
+                    continue
+
                 childnode = TreeNode(child, [])
                 nodelist[node].add_child(childnode)
                 nodelist[child] = childnode
 
-                self.__find_trees(root, nodelist)
+                self.__find_trees(root, nodelist, tmp_cbb_heads)
 
                 del nodelist[child]
                 nodelist[node].remove_child(childnode)
-            self.graph_inv[node] = new_children
 
     def promiscuity(self):
         """ Build all compatible trees and count them """
@@ -175,9 +233,10 @@ class PromiscuityMeasure(object):
         self.__build_cbb_info()
         self.__remove_multiparents()
         self.__invert_graph()
+        self.__invert_cbb_edges()
 
         top_root = TreeNode(top_node, [])
-        self.__find_trees(top_root, {top_node: top_root})
+        self.__find_trees(top_root, {top_node: top_root}, copy.deepcopy(self.cbb_heads))
         return len(self.trees)
 
     def __print_tree(self, root, indent_level):
