@@ -105,7 +105,7 @@ class PromiscuityMeasure(object):
         for (head, children) in self.cbb_edges.items():
             for child in children:
                 if child not in self.cbb_heads[head]:
-                    self.graph[child].intersection(self.cbb_edges[head])
+                    self.graph[child] = self.graph[child].intersection(self.cbb_edges[head])
 
         for (head, child, label) in self.node_edges:
             if label == "Anaph" or label == "unspec":
@@ -119,6 +119,7 @@ class PromiscuityMeasure(object):
                 continue
 
             elif child in self.cbb_edges:
+                print "bar"
                 # if CBB has an outgoing edge, all components of CBB
                 # must have either a head in that CBB
                 # or the outgoing edge head
@@ -126,7 +127,7 @@ class PromiscuityMeasure(object):
                 if head in self.graph:
                     potential_heads.add(head)
                 elif head in self.cbb_edges:
-                    potential_heads.union(self.cbb_heads[head])
+                    potential_heads = potential_heads.union(self.cbb_heads[head])
                 else:
                     continue
 
@@ -134,7 +135,8 @@ class PromiscuityMeasure(object):
                     if n not in self.cbb_heads[child]:
                         self.graph[n] = set(self.cbb_edges[child])
                         continue
-                    self.graph[n].intersect(potential_heads)
+                    print "here!"
+                    self.graph[n] = self.graph[n].intersection(potential_heads)
 
     def __invert_graph(self):
         """ return an inverted version of self.graph, with parents
