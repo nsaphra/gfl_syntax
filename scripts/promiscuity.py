@@ -206,15 +206,10 @@ class PromiscuityMeasure(object):
         if len(nodelist) == len(self.graph) + 1:
             # extra node in nodelist for top_node
             self.trees.append(copy.deepcopy(root))
-            print ("  " * ind_depth) + "******"
             return
 
         for (head, children) in next_edges.items():
             for child in children:
-                if child in nodelist:
-                    print head
-                    print child
-                    print nodelist
                 assert child not in nodelist
 
                 tmp_cbb_heads = self.__constrain_cbbs(head, child,
@@ -227,7 +222,11 @@ class PromiscuityMeasure(object):
                 nodelist[child] = childnode
 
                 # insert new possible edges out of tree
-                next_edges[child] = self.graph_inv[child]
+                next_edges[child] = copy.deepcopy(self.graph_inv[child])
+                # avoid adding backedges
+                for c in self.graph_inv[child]:
+                    if c in next_edges:
+                        next_edges[child].remove(c)
 
                 # remove newly cyclic edges
                 saved_edges = set()
@@ -248,7 +247,7 @@ class PromiscuityMeasure(object):
                 del next_edges[child]
 
                 del nodelist[child]
-                nodelist[node].remove_child(childnode)
+                nodelist[head].remove_child(childnode)
 
     def promiscuity(self):
         """ Build all compatible trees and count them """
