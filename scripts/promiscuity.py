@@ -263,7 +263,7 @@ class PromiscuityMeasure(object):
         top_root = TreeNode(top_node, [])
         self.__find_trees(top_root, {top_node: top_root},
                           copy.deepcopy(self.cbb_heads),
-                          {top_node: self.graph_inv[top_node]},
+                          {top_node: copy.deepcopy(self.graph_inv[top_node])},
                           0)
         return len(self.trees)
 
