@@ -200,7 +200,8 @@ class PromiscuityMeasure(object):
         return cbb_heads
 
     def __find_trees(self, root, nodelist, cbb_heads, next_edges, ind_depth):
-        """ Identify the spanning trees that meet out constraints """
+        """ Identify the spanning trees that meet our constraints
+        based on spanning tree search by Gabow & Myers, 1978 """
         self.__print_tree(root, ind_depth)
 
         if len(nodelist) == len(self.graph) + 1:
@@ -217,6 +218,7 @@ class PromiscuityMeasure(object):
                 if not tmp_cbb_heads:
                     continue
 
+                # insert new node into tree
                 childnode = TreeNode(child, [])
                 nodelist[head].add_child(childnode)
                 nodelist[child] = childnode
