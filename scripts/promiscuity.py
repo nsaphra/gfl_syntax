@@ -18,7 +18,25 @@ class TreeNode(object):
 
     def deepcopy(self):
         return TreeNode(self.name,
-                        [child.deepcopy() for child in self.children])            
+                        [child.deepcopy() for child in self.children])
+
+    def __hash__(self):
+        return reduce(lambda x,y: x ^ y,
+                      [hash(child.name) for child in self.children],
+                      hash(self.name))
+
+    def __eq__(self, other):
+        if other.name != self.name or len(self.children) != len(other.children):
+            return False
+        for child in self.children:
+            child_matches = False
+            for otherchild in other.children:
+                if child == otherchild:
+                    child_matches = True
+                    break
+            if not child_matches:
+                return False
+        return True
 
 class PromiscuityMeasure(object):
     def __init__(self, json_line):
@@ -31,7 +49,7 @@ class PromiscuityMeasure(object):
         self.cbb_edges = {}
         self.cbb_edges_inv = {}
         self.cbb_heads = {}
-        self.trees = []
+        self.trees = set()
         self.graph = {}
         self.graph_inv = {}
 
@@ -199,14 +217,12 @@ class PromiscuityMeasure(object):
         # CASE 5: both nodes not in cbb
         return cbb_heads
 
-    def __find_trees(self, root, nodelist, cbb_heads, next_edges, ind_depth):
+    def __find_trees(self, root, nodelist, cbb_heads, next_edges):
         """ Identify the spanning trees that meet our constraints
         based on spanning tree search by Gabow & Myers, 1978 """
-        self.__print_tree(root, ind_depth)
-
         if len(nodelist) == len(self.graph) + 1:
             # extra node in nodelist for top_node
-            self.trees.append(copy.deepcopy(root))
+            self.trees.add(root.deepcopy())
             return
 
         for (head, children) in next_edges.items():
@@ -239,7 +255,7 @@ class PromiscuityMeasure(object):
                     saved_edges.add(cycle_head)
 
                 self.__find_trees(root, nodelist, tmp_cbb_heads,
-                                  next_edges, ind_depth+1)
+                                  next_edges)
 
                 # add back in old cyclic edges
                 for edge_head in saved_edges:
@@ -263,8 +279,8 @@ class PromiscuityMeasure(object):
         top_root = TreeNode(top_node, [])
         self.__find_trees(top_root, {top_node: top_root},
                           copy.deepcopy(self.cbb_heads),
-                          {top_node: copy.deepcopy(self.graph_inv[top_node])},
-                          0)
+                          {top_node: copy.deepcopy(self.graph_inv[top_node])})
+        self.print_trees()
         return len(self.trees)
 
     def __print_tree(self, root, indent_level):
