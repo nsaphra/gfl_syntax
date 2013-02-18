@@ -9,6 +9,20 @@ import gfl_parser
 
 show_words = False
 
+ROOT = '$$'
+
+def is_balanced(s):
+    def check(l,r):
+        if l not in s and r not in s: return True
+        if l not in s and r in s: return False
+        d = 0
+        for c in s:
+            if c==l: d += 1
+            if c==r: d -= 1
+            if d<0: return False
+        return d==0
+    return check('(',')') and check('[',']') and check('{','}')
+
 def parse_parts(tweet_text):
     s = tweet_text
     s = re.sub('^--- *', '', s)
@@ -51,8 +65,10 @@ def psf2dot(parse):
     darkblue = '"#202090"'
     gray = '"#606060"'
     for head,child,label in parse.node_edges:
-        head=dot_clean(head)
+        if child=='W('+ROOT+')' and label not in ('cbbhead','Anaph'): raise Exception("The root node "+ROOT+" cannot be a dependent except as cbbhead or Anaph.")
+        # TODO: if ROOT is a cbbhead, the above doesn't verify that the CBB is the root of the annotation graph
         child=dot_clean(child)
+        head=dot_clean(head)
         col = {None:darkblue, 'Conj':conjcol, 'Anaph':'purple', 'unspec':gray}.get(label, 'blue')
         dir = {'Anaph':'none'}.get(label, 'back')
         weight = {'Anaph':0.01}.get(label, 5)
@@ -207,6 +223,8 @@ if __name__=='__main__':
         if len(tokens_codes_texts)==1:
             tokens,code,anno_text = tokens_codes_texts[0]
             try:
+                if not is_balanced(code):
+                    raise Exception("Unbalanced parentheses, brackets, or braces in annotation")
                 parse = gfl_parser.parse(tokens, code, check_semantics=True)
             except Exception:
                 if not batch_mode: raise
@@ -228,6 +246,8 @@ if __name__=='__main__':
                 parses.append(None)
             else:
                 try:
+                    if not is_balanced(code):
+                        raise Exception("Unbalanced parentheses, brackets, or braces in annotation:\n"+code)
                     p = gfl_parser.parse(tokens, code, check_semantics=True)
                     parses.append(p)
                 except Exception:
