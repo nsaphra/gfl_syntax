@@ -1,5 +1,7 @@
 # TODO this code is an atrocity
 
+THRESHOLD = 20000
+
 from graph import FUDGGraph
 import copy
 
@@ -54,18 +56,20 @@ def spanning(G, r):
         return inds[v]
 
     def min_ind(T):
-        min = 100000
+        min = 0
         for (u,v) in T:
             if not min or inds[v] < min:
                 min = inds[v]
         return min
 
-    def get_nonbacks(T):
+    def get_nonbacks(T, is_T0=False):
         nonback = []
         min = min_ind(T0 - T)
 
         for (head, tail) in G:
-            if (head, tail) in T or inds[tail] >= min:
+            if (head, tail) in T:
+                continue
+            if not is_T0 and inds[tail] >= min:
                 continue
         
             if tail not in ancestors(head, T, r):
@@ -74,9 +78,10 @@ def spanning(G, r):
         nonback.sort(key=getkey)
         return nonback
 
-    def spanning_iter(T, nonback):
-        print T
-        print nonback
+    def spanning_iter(T, nonback, lvl=0):
+        if len(trees) > THRESHOLD:
+            raise Exception("Too many spanning trees.")
+
         for f in nonback:
             u,v = f
             e = find_tail(T, v)
@@ -84,11 +89,11 @@ def spanning(G, r):
             Tc.add(f)
             Tc.remove(e)
             trees.append(Tc)
-            
+
             Tc_nonback = get_nonbacks(Tc)
+ 
+            spanning_iter(Tc, Tc_nonback, lvl+1)
 
-            spanning_iter(Tc, Tc_nonback)
-
-    nonback = get_nonbacks(T0)
+    nonback = get_nonbacks(T0, is_T0=True)
     spanning_iter(T0, nonback)
     return trees

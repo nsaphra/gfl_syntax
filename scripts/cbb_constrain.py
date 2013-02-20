@@ -1,14 +1,21 @@
 from graph import FUDGGraph
 
 def constrain_cbbs(trees, fudg):
+    """
+    Returns only the trees that adhere to constraint that there can
+    only be a single head in each CBB.
+
+    trees: potential dependency trees over fudg
+    fudg: fudggraph for a document
+    """
     constrained = []
 
+    # build dict of cbb -> components
     cbb_children = {}
     for (cbb, child) in fudg.cbbnodes:
         if cbb not in cbb_children:
             cbb_children[cbb] = set()
             cbb_children[cbb].add(child)
-
 
     def get_cbbs_containing(n):
         cbbs = set()
@@ -17,7 +24,6 @@ def constrain_cbbs(trees, fudg):
                 cbbs.add(cbb)
         return cbbs
 
-
     for t in trees:
         t_ok = True
         cbb_tops = {}
@@ -25,7 +31,10 @@ def constrain_cbbs(trees, fudg):
             if not t_ok:
                 break
 
-            cbbs = get_cbbs_containing(child)
+            head_cbbs = get_cbbs_containing(head)
+            child_cbbs = get_cbbs_containing(child)
+            constrain(head, child, head_cbbs)
+            constrain(child, head, 
             for cbb in cbbs:
                 if head not in cbb:
                     if cbb in cbb_tops:
