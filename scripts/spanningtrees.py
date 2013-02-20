@@ -1,3 +1,5 @@
+# TODO this code is an atrocity
+
 from graph import FUDGGraph
 import copy
 
@@ -52,7 +54,7 @@ def spanning(G, r):
         return inds[v]
 
     def min_ind(T):
-        min = 0
+        min = 100000
         for (u,v) in T:
             if not min or inds[v] < min:
                 min = inds[v]
@@ -63,7 +65,7 @@ def spanning(G, r):
         min = min_ind(T0 - T)
 
         for (head, tail) in G:
-            if (head, tail) in T or inds[tail] < min:
+            if (head, tail) in T or inds[tail] >= min:
                 continue
         
             if tail not in ancestors(head, T, r):
